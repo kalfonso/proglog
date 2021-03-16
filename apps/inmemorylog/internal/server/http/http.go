@@ -2,7 +2,7 @@ package http
 
 import (
 	"encoding/json"
-	"github.com/kalfonso/proglog/internal/log"
+	"github.com/kalfonso/proglog/apps/inmemorylog/internal/log"
 	"net/http"
 
 	"github.com/gorilla/mux"

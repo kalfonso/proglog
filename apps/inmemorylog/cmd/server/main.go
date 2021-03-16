@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kalfonso/proglog/internal/server/http"
+	"github.com/kalfonso/proglog/apps/inmemorylog/internal/server/http"
 	"log"
 )
 
