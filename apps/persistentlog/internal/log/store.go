@@ -3,6 +3,7 @@ package log
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	"os"
 	"sync"
@@ -22,6 +23,20 @@ type store struct {
 	mu   sync.Mutex
 	buf  *bufio.Writer
 	size uint64
+}
+
+//ErrorOffsetNotFound defines an error for an invalid offset.
+type ErrorOffsetNotFound struct {
+	offset uint64
+}
+
+//NewErrorOffsetNotFound creates an ErrorOffsetNotFound.
+func NewErrorOffsetNotFound(offset uint64) *ErrorOffsetNotFound {
+	return &ErrorOffsetNotFound{offset: offset}
+}
+
+func (e *ErrorOffsetNotFound) Error() string {
+	return fmt.Sprintf("offset not found: %d", e.offset)
 }
 
 func newStore(f *os.File) (*store, error) {
@@ -60,20 +75,23 @@ func (s *store) Append(r []byte) (n uint64, pos uint64, err error) {
 
 // Read reads the record at the given position.
 // It flushes the writer buffer in case it's reading a record that hasn't been flushed yet.
-func (s *store) Read(pos uint64) ([]byte, error) {
+func (s *store) Read(off uint64) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.size == 0 {
+		return []byte{}, NewErrorOffsetNotFound(0)
+	}
 	if err := s.buf.Flush(); err != nil {
 		return []byte{}, errors.WithStack(err)
 	}
 	// read the length of the record we're about to read
 	size := make([]byte, lenWidth)
-	if _, err := s.File.ReadAt(size, int64(pos)); err != nil {
+	if _, err := s.File.ReadAt(size, int64(off)); err != nil {
 		return []byte{}, errors.WithStack(err)
 	}
 	// read the record's byte now that we have its size
 	r := make([]byte, enc.Uint64(size))
-	if _, err := s.File.ReadAt(r, int64(pos + lenWidth)); err != nil {
+	if _, err := s.File.ReadAt(r, int64(off+ lenWidth)); err != nil {
 		return []byte{}, errors.WithStack(err)
 	}
 	return r, nil
