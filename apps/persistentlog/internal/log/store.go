@@ -98,13 +98,13 @@ func (s *store) Read(off uint64) ([]byte, error) {
 }
 
 // ReadAt reads len(r) at offset off, flushing the underlying buffer first.
-func (s *store) ReadAt(r []byte, off uint64) (int, error) {
+func (s *store) ReadAt(r []byte, off int64) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.buf.Flush(); err != nil {
 		return 0, errors.WithStack(err)
 	}
-	n, err := s.ReadAt(r, off)
+	n, err := s.File.ReadAt(r, off)
 	return n, errors.WithStack(err)
 }
 
