@@ -63,6 +63,39 @@ func TestReadAt(t *testing.T) {
 	require.EqualValues(t, message, storedMessage)
 }
 
+func TestClose(t *testing.T) {
+	store, err := newTestStore()
+	require.NoError(t, err)
+	defer os.Remove(store.File.Name())
+
+	message := "payment received"
+	_, _, err = store.Append([]byte(message))
+	require.NoError(t, err)
+	beforeInfo, err := store.Stat()
+	require.NoError(t, err)
+
+	err = store.Close()
+	require.NoError(t, err)
+
+	// cannot stat closed file, need to open again
+	file, afterInfo, err := openFile(store.Name())
+	require.NoError(t, err)
+	defer file.Close()
+	// store.Close() flushes the buffer so we expect the store size to have the buffered data persisted.
+	require.True(t, beforeInfo.Size() < afterInfo.Size())
+}
+
+func openFile(name string) (file *os.File, fi os.FileInfo, err error) {
+	file, err = os.OpenFile(name,
+		os.O_RDWR|os.O_CREATE|os.O_APPEND,
+		0644)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+	fi, err = os.Stat(name)
+	return file, fi, errors.WithStack(err)
+}
+
 func newTestStore() (*store, error) {
 	f, err := ioutil.TempFile("", "store_test")
 	if err != nil {
