@@ -10,19 +10,21 @@ import (
 )
 
 const (
-	lenWidth = 8 // number of bites used to represent the record length
+	lenWidth = 8 // number of bytes used to represent the record length
 )
 
 var (
 	enc = binary.BigEndian
+	storeSizeMaxedError = errors.New("there is no space left in store for message")
 )
 
 // store is the persistent file where the log records are kept.
 type store struct {
 	*os.File
-	mu   sync.Mutex
-	buf  *bufio.Writer
-	size uint64
+	mu     sync.Mutex
+	buf    *bufio.Writer
+	size   uint64
+	config Config
 }
 
 //ErrorOffsetNotFound defines an error for an invalid offset.
@@ -39,7 +41,7 @@ func (e *ErrorOffsetNotFound) Error() string {
 	return fmt.Sprintf("offset not found: %d", e.offset)
 }
 
-func newStore(f *os.File) (*store, error) {
+func newStore(f *os.File, c Config) (*store, error) {
 	// get the store file size in case the store is being re-created after a crash or restart
 	fi, err := os.Stat(f.Name())
 	if err != nil {
@@ -47,10 +49,11 @@ func newStore(f *os.File) (*store, error) {
 	}
 	size := uint64(fi.Size())
 	return &store{
-		File: f,
-		mu:   sync.Mutex{},
-		buf:  bufio.NewWriter(f),
-		size: size,
+		File:   f,
+		mu:     sync.Mutex{},
+		buf:    bufio.NewWriter(f),
+		size:   size,
+		config: c,
 	}, nil
 }
 
@@ -58,6 +61,9 @@ func newStore(f *os.File) (*store, error) {
 func (s *store) Append(r []byte) (n uint64, pos uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.size + uint64(len(r)) > s.config.Segment.MaxStoreBytes {
+		return 0, 0, errors.WithStack(storeSizeMaxedError)
+	}
 	pos = s.size
 	// write the length of the record
 	err = binary.Write(s.buf, enc, uint64(len(r)))

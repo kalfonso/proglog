@@ -101,7 +101,12 @@ func newTestStore() (*store, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	store, err := newStore(f)
+	c := Config{
+		Segment: Segment{
+			MaxStoreBytes: 1024,
+		},
+	}
+	store, err := newStore(f, c)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

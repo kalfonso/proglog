@@ -24,7 +24,7 @@ type segment struct {
 }
 
 func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
-	store, err := createStore(dir, baseOffset)
+	store, err := createStore(dir, baseOffset, c)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -47,7 +47,7 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 	return segment, nil
 }
 
-func createStore(dir string, offset uint64) (*store, error) {
+func createStore(dir string, offset uint64, c Config) (*store, error) {
 	fileName := path.Join(dir, fmt.Sprintf("%d.store", offset))
 	storeFile, err := os.OpenFile(fileName,
 		os.O_RDWR|os.O_CREATE|os.O_APPEND,
@@ -55,7 +55,7 @@ func createStore(dir string, offset uint64) (*store, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	store, err := newStore(storeFile)
+	store, err := newStore(storeFile, c)
 	return store, errors.WithStack(err)
 }
 
