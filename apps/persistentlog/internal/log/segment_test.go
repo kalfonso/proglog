@@ -4,6 +4,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	api "github.com/kalfonso/proglog/apps/persistentlog/api/v1"
 	"github.com/stretchr/testify/require"
+	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -52,6 +54,38 @@ func TestSegment_AppendMultipleMessages(t *testing.T) {
 	r := &api.Record{Value: val}
 	_, err := s.Append(r)
 	require.EqualError(t, err, storeSizeMaxedError.Error())
+}
+
+func TestSegment(t *testing.T) {
+	dir, _ := ioutil.TempDir("", "segment-test")
+	defer os.RemoveAll(dir)
+
+	want := &api.Record{Value: []byte("hello world")}
+
+	c := Config{}
+	c.Segment.MaxStoreBytes = 1024
+	c.Segment.MaxIndexBytes = entWidth * 3
+
+	baseOffset := uint64(16)
+	s, err := newSegment(dir, baseOffset, c)
+	require.NoError(t, err)
+	require.Equal(t, baseOffset, s.nextOffset)
+	require.False(t, s.IsMaxed())
+
+	for i := uint64(0); i < 3; i++ {
+		offset, err := s.Append(want)
+		require.NoError(t, err)
+		require.Equal(t, baseOffset + i, offset)
+
+		got, err := s.Read(offset)
+		require.NoError(t, err)
+		require.Equal(t, want.Value, got.Value)
+	}
+
+	// Maxed index
+	_, err = s.Append(want)
+	require.ErrorIs(t, err, io.EOF)
+	require.True(t, s.IsMaxed())
 }
 
 func createTestSegment(t *testing.T) *segment {
